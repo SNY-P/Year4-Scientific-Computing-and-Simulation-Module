@@ -1,0 +1,244 @@
+
+<!-- saved from url=(0086)https://moodle.port.ac.uk/pluginfile.php/3168755/mod_resource/content/4/week5-lab.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link href="./week5-lab_files/mystyle.css" rel="stylesheet" type="text/css">
+</head>
+
+<body style="" data-new-gr-c-s-check-loaded="14.1111.0" data-gr-ext-installed="">
+
+<div id="container">
+
+<div id="header">
+<h1>Scientific Computing and Simulation, Lab 5: Lattice gas models</h1>
+
+</div>
+
+<div id="content">
+
+<p>
+In this lab I want you to complete an implementation of the simplest
+interesting Lattice Gas Model in two dimensions - the HPP model described
+initially in the lecture.  I will also provide my own implementation
+of the more complex FHP model, for you to experiment with.
+</p>
+
+<h2>A Lattice Gas on a square grid - the HPP model</h2>
+
+<p>
+As explained in the lecture, the Hardy, Pomeau and de Pazzis 
+model is defined on a square grid.  This makes implementation of streaming
+and collisions particularly simple, and I assume you shouldn't have
+too much trouble implementing them in the time frame of this lab.</p>
+
+<p>
+Once again I will provide you with an outline program, including possible
+code for initialization and display.  Please download the code at
+<a href="/Lab Work/Week 5/HPP/">HPP.java</a>.
+</p>
+
+<p>
+The main method of in the provided outline code looks like this:
+</p><pre>    public static void main(String args []) throws Exception {
+
+        // initialize - populate a subblock of grid
+        for(int i = 0; i &lt; NX/4 ; i++) {
+            for(int j = 0; j &lt; NY/4 ; j++) {
+                boolean [] fin_ij = fin [i] [j] ;
+                for(int d = 0 ; d &lt; q ; d++) {
+                    if(Math.random() &lt; DENSITY) {
+                        fin_ij [d] = true ;
+                    }
+                }
+            }
+        }
+
+        display.repaint() ;
+        Thread.sleep(DELAY) ;
+
+        for(int iter = 0 ; iter &lt; NITER ; iter++) {
+
+            // Collision
+
+            for(int i = 0; i &lt; NX ; i++) {
+                for(int j = 0; j &lt; NY ; j++) {
+                    boolean [] fin_ij = fin [i] [j] ;
+                    boolean [] fout_ij = fout [i] [j] ;
+
+                    <span style="color:red">// default, no collisions case:
+
+                    fout_ij [0] = fin_ij [0] ;
+                    fout_ij [1] = fin_ij [1] ;
+                    fout_ij [2] = fin_ij [2] ;
+                    fout_ij [3] = fin_ij [3] ;
+
+                    // please add collisions as per lecture!</span>
+                }
+            }
+
+            // Streaming
+
+            for(int i = 0; i &lt; NX ; i++) {
+                int iP1 = (i + 1) % NX ;
+                int iM1 = (i - 1 + NX) % NX ;
+                for(int j = 0; j &lt; NY ; j++) {
+                    int jP1 = (j + 1) % NY ;
+                    int jM1 = (j - 1 + NY) % NY ;
+
+                    <span style="color:red">// no streaming case:
+
+                    fin [i] [j] [0] = fout [i] [j] [0] ;
+                    fin [i] [j] [1] = fout [i] [j] [1] ;
+                    fin [i] [j] [2] = fout [i] [j] [2] ;
+                    fin [i] [j] [3] = fout [i] [j] [3] ;
+
+                    // please add streaming as per lecture!</span>
+                }
+            }
+
+            System.out.println("iter = " + iter) ;
+            display.repaint() ;
+
+            Thread.sleep(DELAY) ;
+        }
+    }
+</pre>
+I suggest you implement the streaming step first, as explained around
+slide 15 in the lecture.  To make your life earlier I have precomputed
+<i>i</i> and <i>j</i> (corresponding to <i>x</i> and <i>y</i>) indices
+of neighbouring sites, under the assumption of wraparound at the edges
+of the lattice.  The index arithmetic is identical to that given in 
+the original Game of Life code you used in the Parallel Programming module.<p></p>
+
+<p>
+Before moving on to the collision stage, test and debug you streaming
+code.</p>
+
+<p>
+When the streaming behaviour looks correct, fill in the collision code.
+I have already given you pseudocode on slide 22 of the lecture.</p>
+
+<p>
+If it isn't obvious by inspection of the code running with the given
+initial conditions whether particles are behaving as they should, you
+can set up initial conditions with (e.g.) just two particles, where you
+stage collisions.  For example replace initalization code above by just:
+</p><pre>        // initialize - staged head on collision in x direction.
+        fin [NX/2 + 1] [NY/2] [0] = true ;
+        fin [NX/2 - 1] [NY/2] [1] = true ;
+</pre>
+You may want to increase the value of <tt>DELAY</tt> so you can see
+what is going on here.
+Staging such collisions amounts to a kind of "unit testing" of the
+collision code.
+<p></p>
+
+<p>
+Once you are confident streaming and collision are working as intended,
+you may want to experiment with slightly different initial conditions,
+controlled by the ranges of the initialization loop and the <tt>DENSITY</tt>
+parameter.
+</p>
+
+<p>
+If you preferred the colour scheme in the lecture, with arrows in different
+directions coloured differently, comment/uncomment the appropriate
+<tt>setColor</tt> commands in the <i>Display</i> class.
+</p>
+
+<h2>An approach to coding the FHP model</h2>
+
+<p>The more realistic 2d models on triangular lattices present more of
+a challenge in terms of coding.  Given the time available, I have simply
+provided some code for you to inspect and experiment with in this class <a href="/Lab Work/Week 5/FHP/">FHP.java</a>.
+
+</p><p>
+The triangular lattice is generated from two unit-length "basis vectors"
+with <i>x</i>, <i>y</i> components [1, 0] and [0.5, 0.5 sqrt(3)] respectively,
+as illustrated here:</p>
+<p>
+<img src="./week5-lab_files/Triangular-lattice.png" height="300">
+</p>
+Most of the non-trivial geometry here is encoded in the <i>Display</i>
+class and also in the streaming code.<p></p>
+
+<p>
+The states 0 and 1 correspond to motion in negative and positive directions
+the horizontal (<b>b</b><sup>(1)</sup>) direction.  The states 2 and 3
+correspond to motion in the negative and positive <b>b</b><sup>(2)</sup>
+directions.  The states 4 and 5 correspond to motion indicated by the
+yellow and green arrows in the figure above.  (For avoidance of confusion,
+note that in the figure above and all figures in the PowerPoint slides
+the y dimension increases <i>upwards</i>; on the display generated by
+the program the y dimension increases <i>downwards</i> - unfortunately
+you have to mentally invert going between figures and program display.)</p>
+
+<p>
+The implication of this for the streaming step is that whilst the streaming
+of states 0 through 3 are much as in the HPP case, that for states 4 and
+5 is more complicated.  Note in the figure above how these states connect
+site (2, 2), for example, to (1, 3) and (3, 1).</p>
+
+<p>
+The collision step, whilst considerably more complicated than the HPP
+case, because of the much larger number of collistion types to consider,
+is not much affected by the geometry beyond knowing state 0 is opposite
+state 1, etc.  The three way collisions need slightly more careful thought.
+To convince yourself they are correct - in accordance with slide 27 of the
+lecture - you may want to try "unit test" cases like this:
+</p><pre>        // initialize - staged three way collision
+        fin [NX/2 - 1] [NY/2] [1] = true ;
+        fin [NX/2] [NY/2 + 1] [2] = true ;
+        fin [NX/2 + 1] [NY/2 - 1] [5] = true ;
+</pre>
+for the initial conditions.<p></p>
+
+<h2>Exercises</h2>
+
+<p>Experiment further with these codes.</p>
+
+<p>
+To get something more like recognizable fluid dynamics you might want
+to strip out the elaborate plotting of arrow-like triangles to display
+the full state, and just display the particle densities at points as
+calculated on slide 11 of the lecture, on some kind of grey scale.
+Even better, average this density over small groups of neighbouring
+cells.  You should then be able to move to simulations on much larger
+lattices.</p>
+
+<p>
+Encoding the local state in terms of a short array of boolean variables
+isn't necessary the best way of doing things.  A more efficient way
+is usually to encode the local velocity states in terms of the bits of a single
+<tt>int</tt> variable, and use bitwise operations for manipulating them.
+By analogy with similar techniques used in computational statistical
+physics this is sometimes called <i>multi-spin encoding</i>.
+How would you change the HPP code, for example, to use this technique?
+</p>
+
+<div id="footer">
+Copyright © University of Portsmouth, 2020
+</div>
+
+
+
+</div></div></body><grammarly-desktop-integration data-grammarly-shadow-root="true"><template shadowrootmode="open"><style>
+  div.grammarly-desktop-integration {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select:none;
+    user-select:none;
+  }
+
+  div.grammarly-desktop-integration:before {
+    content: attr(data-content);
+  }
+</style><div aria-label="grammarly-integration" role="group" tabindex="-1" class="grammarly-desktop-integration" data-content="{&quot;mode&quot;:&quot;full&quot;,&quot;isActive&quot;:true,&quot;isUserDisabled&quot;:false}"></div></template></grammarly-desktop-integration></html>

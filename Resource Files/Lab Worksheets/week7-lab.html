@@ -1,0 +1,326 @@
+
+<!-- saved from url=(0086)https://moodle.port.ac.uk/pluginfile.php/3168770/mod_resource/content/7/week7-lab.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link href="./week7-lab_files/mystyle.css" rel="stylesheet" type="text/css">
+</head>
+
+<body style="" data-new-gr-c-s-check-loaded="14.1111.0" data-gr-ext-installed="">
+
+<div id="container">
+
+<div id="header">
+<h1>Scientific Computing and Simulation, Lab 7: A Lattice Boltzmann Model</h1>
+
+</div>
+
+<div id="content">
+
+<p>
+This week you will be provided with a sample of a Lattice Boltzmann code
+simulating two-dimensional fluid flow around a "cylindrical" (i.e. circular)
+obstacle.  You will be asked to perform some simple optimizations on this
+code, then experiment further with the parameters of the simulation.</p>
+
+<h2>A Sample Lattice Boltzmann Code</h2>
+
+<p>
+This week the provided code is in this class, <a href="/Lab Work/Week 7/LBM/">LBM</a>.
+Download this code and study it with the aid of the following notes.</p>
+
+<p>
+Here is a <i>schematic</i> outline of the main method and the
+<i>equilibrium</i> method of the provided code:
+</p><pre>    public static void main(String args []) throws Exception {
+
+        double cx = NX/4.0, cy = NY/2.0, r = 20 ;
+                // Coordinates and size of obstacle.
+
+        double nulb = uLB * r / Re ;
+        double omega = 1.0 / (3 * nulb + 0.5) ;  // Relaxation parameter
+
+        // Define table c of velocity states
+        <span style="color:red">... initialize 'c' as per D2Q9  ...</span>
+
+        // Define table w of weights for equilibrium distribution
+        <span style="color:red">... initialize 'w' as per D2Q9 ...</span>
+
+        <span style="color:red">... set up various tables - 'noslip', 'i1', 'i2' and 'i3' - used in
+            implementaion of boundary conditions ...</span>
+
+        // Cylindrical obstacle
+        <span style="color:red">... initialize boolean array 'obstacle', true if within cylindrical
+            obstacle centred at 'cx', 'cy' ...</span>
+
+        // Inlet velocity with perturbation
+        <span style="color:red">... define velocity profile `vel' at inlet, and initialize 'fin' -
+            equilibrium state: stationary, except at inlet boundary, x = 0 ...</span>
+
+        for(int time = 0 ; time &lt; NITER ; time++) {
+
+            // Calculate macroscopic density and velocity
+            for(int i = 0 ; i &lt; NX ; i++) {
+                for(int j = 0 ; j &lt; NY ; j++) {
+                    double [] fin_ij = fin [i] [j] ;
+                    double [] u_ij = u [i] [j] ;
+                    if(i &gt; 0) {
+                        float sum = 0, sum0 = 0, sum1 = 0 ;
+                        for(int d = 0; d &lt; Q ; d++) {
+                            sum += fin_ij [d] ;
+                            sum0 += c [d] [0] * fin_ij [d] ;
+                            sum1 += c [d] [1] * fin_ij [d] ;
+                        }
+                        rho [i] [j] = sum ;
+                        if(sum &gt; 0) {
+                            u_ij [0] = sum0 / sum ;
+                            u_ij [1] = sum1 / sum ;
+                        }
+                    }
+                    else {
+                        // BC - left wall: compute density from known
+                        // populations.
+                        <span style="color:red">... BC code ...</span>
+                    }
+                }
+            }
+
+            // Collision step.
+            for(int i = 0 ; i &lt; NX ; i++) {
+                for(int j = 0 ; j &lt; NY ; j++) {
+                    double [] fin_ij = fin [i] [j] ;
+                    double [] fout_ij = fout [i] [j] ;
+                    if(obstacle [i] [j]) {
+                        // BC - no slip at obstacle
+                        <span style="color:red">... BC code ...</span>
+                    }
+                    else {
+                        double [] feq = new double [Q] ;
+
+                        equilibrium(feq,
+                                    rho [i] [j], u [i] [j] [0], u [i] [j] [1]) ;
+
+                        // BC - Left wall: Equilibrium scheme
+                        if(i == 0) {
+                            <span style="color:red">... BC code ...</span>
+                        }
+                        for(int d = 0; d &lt; Q ; d++) {
+                            fout_ij [d] = fin_ij [d] -
+                                    omega * (fin_ij [d] - feq [d]) ;
+                        }
+                    }
+                }
+            }
+
+            // Streaming step.
+            for(int i = 0 ; i &lt; NX ; i++) {
+
+                int iP1 = (i + 1) % NX ;
+                int iM1 = (i - 1 + NX) % NX ;
+
+                double [] [] fin_i = fin [i] ;
+                double [] [] fin_iM1 = fin [iM1] ;
+                double [] [] fin_iP1 = fin [iP1] ;
+
+                for(int j = 0 ; j &lt; NY ; j++) {
+                    double [] fout_ij = fout [i] [j] ;
+                    for(int d = 0; d &lt; Q ; d++) {
+                        int i_shf = (i + c [d] [0] + NX) % NX ;
+                        int j_shf = (j + c [d] [1] + NY) % NY ;
+                        fin [i_shf] [j_shf] [d] = fout_ij [d] ;
+                    }
+                }
+            }
+
+            // BC - Right wall: outflow condition
+            <span style="color:red">... BC code ...</span>
+        }
+    }
+
+    static void equilibrium(double [] feq, double rho, double u0, double u1) {
+
+        double usqr = u0 * u0 + u1 * u1 ;
+
+        for(int d = 0; d &lt; Q ; d++) {
+            int [] cEl = c [d] ;
+            double cElu = cEl [0] * u0 + cEl [1] * u1 ;
+            feq [d] = rho * w [d] * (1.0 + 3.0 * cElu +
+                                     4.5 * cElu * cElu - 1.5 * usqr) ;
+        }
+    }
+</pre>
+Most of the ellided code is related to the implementation of boundary
+conditions ("BC code").  You will notice that there is rather a lot of
+this code.  Boundary conditions include the behaviour of the fluid at
+the inlet (<span style="color:blue"><i>x</i> = 0</span>), behaviour at
+the outlet
+(<span style="color:blue"><i>x</i> = <i>NX</i> - 1</span>), and its behaviour
+in the
+neighbourhood of the cylindrical obstacle sitting in the flow.  Tacitly there
+is also a periodic boundary condition (of the kind we have seen in cellular
+automata before) connecting the top and bottom of the display - this
+is manifested in modulo operations in the streaming step.<p></p>
+
+<p>
+We haven't yet discussed boundary conditions in Lattice Boltzmann models,
+and you can safely ignore this code until after we have discussed these
+matters next week.</p>
+
+<p>
+Of the remaining code, you will note that the body of the main loop has
+three main phases:
+</p><ol>
+<li>
+calculation of the macroscopic density and flow velocity,
+based on the population of "microscopic" states defined by <tt>fin</tt>,
+</li><li>
+the collision step, including calculation of equilibrium distribution, to
+calculate <tt>fout</tt>, and</li>
+<li>
+the streaming step, which defines new values in <tt>fin</tt>.</li>
+</ol>
+<p>
+
+</p><p>
+The code in the body of the loop that calculates the "macroscopic
+quantities" is based on the formulae on slide 12 of the lecture (at
+least in the main <tt>i &gt; 0</tt> branch).  Check you understand what is
+going on here.</p>
+
+<p>
+The code in the loop for the collision step calculates the equilibrium
+distribution for the prevailing density and flow velocity using
+the method <tt>equilibrim</tt>, then applies the update given on
+slide 14.  You will recognize that <tt>omega</tt> is
+<span style="color:blue">1 / τ</span>.</p>
+
+<p>
+The <tt>equilibrium</tt> method applies the formula on slide 15,
+using the weights calculated earlier and the fact that 
+<span style="color:blue"><i>c<sub>s</sub></i><sup>2</sup> = 1/3</span>.</p>
+
+<p>
+The streaming step uses the velocity vectors precomputed in the array
+<tt>c</tt> and applies periodic boundary conditions (although these
+conditions in the <i>x</i> direction at inlet and outlet are overridden
+by "BC" code elsewhere in the program).</p>
+
+<h2>Running the Code</h2>
+
+<p>
+Run the code provided for 5000 iterations (<tt>NITER = 5000</tt>).</p>
+
+<p>
+What will be displayed is the velocity of the flow.  Red means fast flow,
+blue means slow (which may include fluid at rest).  To give
+an impression of flow direction, a coarser grid is superimposed,
+displaying "tags" whose length and direction are proportional to the
+flow vector.</p>
+
+<p>
+In the initial state the fluid is in equilibrium at rest.  Then fluid
+starts flowing in from the inlet at the
+left.  You may spot various sound waves bouncing around before the
+system settles down into a more continuous flow.</p>
+
+<p>
+Soon a pattern of initial steady flow is established, where you may be
+able to identify a symmetric pair of vortices attached immediately
+downstream of the obstacle - one on top of the other.  These vortices
+gradually get stretched into elongated ovals.</p>
+
+<p>
+This should be the situation when the simulation finishes at 5000
+iterations.</p>
+
+<p>
+Before trying to get further into the simulation, I want you to optimize
+the code.</p>
+
+<p>
+At four places in the schematic code above there are loops over the
+9 velocity states.  They have loop headers like this:
+</p><pre>        for(int d = 0; d &lt; Q ; d++) {
+</pre>
+In the provided code these four loops are followed by commented out
+sections of code starting with comments like this:
+<pre>        // UNROLLED version of above loop over d
+</pre>
+<i>Loop unrolling</i> is an often powerful form of optimization in
+scientific and high performance computing.  It consists of taking
+a performance-critical inner loop of a program and partially or
+completely replacing the loop with an inline sequence of operations,
+repeating the loop body some constant number of times.  This at
+least reduces overheads of branching and looping.<p></p>
+
+<p>
+In the examples here it is particularly effective because the <i>d</i>
+loops only repeat 9 times and it practical to unroll the whole of these
+loops.  Moreover if we are willing to specialize to a particular set
+of velocity states, like D2Q9 here, we can then replace <tt>c</tt> and
+<tt>w</tt> elements with their known, constant values, leading to
+further simplifications.</p>
+
+<p>
+Comment out the four loops over <i>d</i>, uncomment the unrolled
+versions, and run the code again.</p>
+
+<p>
+Does the code go faster, and if so by how much?</p>
+
+<p>
+Now ramp up the iteration count to say 30,000 or 40,000, and watch
+the simulation unfold further.</p>
+
+<p>
+After 5,000 steps, the two vortices in the wake of the obstacle should
+continue to deform.   Then, at around 15,000 steps the flow pattern should
+start to destabilize, and the obstacle should start to "shed" the deformed
+vortices in its wake.  These disappear downstream, and a new "order" should
+eventually establish itself, in which successive
+pairs of alternating clockwise and anticlockwise
+vortices are shed at regular intervals.  This is called a
+<a href="https://en.wikipedia.org/wiki/K%C3%A1rm%C3%A1n_vortex_street">von
+Karman vortex street</a></p>
+
+<h2>Exercises</h2>
+
+<p>Experiment further with your code.</p>
+
+<p>
+You may want to increase the lattice size, or change the size or shape
+of the obstacle.  You can also, for example, change the incident flow
+velocity and the Reynolds Number (we will discuss this more next week).</p>
+
+<p>
+As a slightly more challenging exercise, you may want to make a
+thread-parallel version of the code, to see if you can speed up the code
+or get to larger system sizes.  You will need two barrier synchronizations
+in your main loop.  Can you tell where they should go?
+</p>
+
+<div id="footer">
+Copyright © University of Portsmouth, 2021
+</div>
+
+
+
+</div></div></body><grammarly-desktop-integration data-grammarly-shadow-root="true"><template shadowrootmode="open"><style>
+  div.grammarly-desktop-integration {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select:none;
+    user-select:none;
+  }
+
+  div.grammarly-desktop-integration:before {
+    content: attr(data-content);
+  }
+</style><div aria-label="grammarly-integration" role="group" tabindex="-1" class="grammarly-desktop-integration" data-content="{&quot;mode&quot;:&quot;full&quot;,&quot;isActive&quot;:true,&quot;isUserDisabled&quot;:false}"></div></template></grammarly-desktop-integration></html>

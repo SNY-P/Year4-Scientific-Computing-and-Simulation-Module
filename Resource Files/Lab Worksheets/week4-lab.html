@@ -1,0 +1,329 @@
+
+<!-- saved from url=(0086)https://moodle.port.ac.uk/pluginfile.php/3168750/mod_resource/content/9/week4-lab.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link href="./week4-lab_files/mystyle.css" rel="stylesheet" type="text/css">
+</head>
+
+<body style="" data-new-gr-c-s-check-loaded="14.1111.0" data-gr-ext-installed="">
+
+<div id="container">
+
+<div id="header">
+<h1>Scientific Computing and Simulation, Lab 4: An attempt at sky imaging</h1>
+
+</div>
+
+<div id="content">
+
+<p>
+In this lab we will try to apply the principles of imaging from
+radiointerformetry data.  The visibilities data set we work from is real,
+but I fear slightly uninspiring in terms the image it yields.
+Nevertheless the principles apply to more interesting data (up to and
+including the iconic M87* black hole image).
+</p>
+
+<h2>A simple imaging program</h2>
+
+<p>
+As in the past few weeks, I will give you a head start by providing an outline
+program.  Please download the Java file
+<a href="/Lab Work/Week 4/Imaging.java">Imaging.java</a>.
+</p>
+
+<p>
+The main method of the main class in this file looks like this:
+</p><pre>    public static void main(String [] args) throws IOException {
+
+        float reVis, imVis ;
+        float U, V ;
+
+        // Read data from "vis-and-uv.txt"
+
+        BufferedReader in = new BufferedReader(
+                new InputStreamReader(new FileInputStream("vis-and-uv.txt"))) ;
+
+        // FT of visibilities
+
+        double rawImage [] [] = new double [N] [N] ;
+        double dirtyBeam [] [] = new double [N] [N] ;
+
+        int k = 0 ;
+
+        DisplayUV display1 = new DisplayUV(15000.0f) ;
+
+        while(true) {
+
+            String line = in.readLine() ;
+            if(line == null) break ;
+
+            String [] fields = line.split("\\s+") ;
+
+            float XXAmp = Float.parseFloat(fields [0]) ;
+            float XXPhs = Float.parseFloat(fields [1]) ;
+            float XYAmp = Float.parseFloat(fields [2]) ;
+            float XYPhs = Float.parseFloat(fields [3]) ;
+            float YXAmp = Float.parseFloat(fields [4]) ;
+            float YXPhs = Float.parseFloat(fields [5]) ;
+            float YYAmp = Float.parseFloat(fields [6]) ;
+            float YYPhs = Float.parseFloat(fields [7]) ;
+            float u = Float.parseFloat(fields [8]) ;
+            float v = Float.parseFloat(fields [9]) ;
+
+            double XXPhsRad = Math.PI * (XXPhs / 180) ;
+            double YYPhsRad = Math.PI * (YYPhs / 180) ;
+
+            // Take sum of XX and YY polarizations
+            reVis = (float) (XXAmp * Math.cos(XXPhsRad) +
+                             YYAmp * Math.cos(YYPhsRad)) ;
+            imVis = (float) (XXAmp * Math.sin(XXPhsRad) +
+                             YYAmp * Math.sin(YYPhsRad)) ;
+
+            U = u / WAVELENGTH ;
+            V = v / WAVELENGTH ;
+
+            display1.addPoint(U, V) ;
+
+            for (int i = 0 ; i &lt; N ; i++) {
+                double l = (i - N / 2) * CELL ;
+
+                for (int j = 0 ; j &lt; N ; j++) {
+                    double m = (j - N / 2) * CELL ;
+
+                    double arg = 2 * Math.PI * (l * U + m * V) ;
+                    double cos = Math.cos(arg) ;
+                    double sin = Math.sin(arg) ;
+
+                    rawImage  [i] [N - j - 1] += reVis * cos - imVis * sin ;
+                    dirtyBeam [i] [N - j - 1] += cos ;
+                }
+            }
+
+            k++ ;
+            if(k % 10000 == 0) {
+                System.out.println("k = " + k) ;
+                display1.repaint() ;
+            }
+        }
+
+        // Plot image
+
+        DisplayDensity display2 =
+                new DisplayDensity(rawImage, N, "Dirty image") ;
+
+        // Plot dirty beam
+
+        DisplayDensity display3 =
+                new DisplayDensity(dirtyBeam, N,
+                                   "Point spread function") ;
+    }
+</pre>
+(The file <tt>Imaging.java</tt> also contains the definition of a
+class <i>DiplayUV</i>, used to display coverage of the <i>u</i>, <i>v</i>
+plane in the input data set.)<p></p>
+
+<p>
+We will be calculaing the inverse Fourier transform of some visiblities
+read, together with their corresponding <i>u</i>, <i>v</i> values, from lines
+of a file.</p>
+
+<p>
+As presented on slide 17 of this week's lecture, this transform is a
+sum over <i>u</i>, <i>v</i> values, for each pixel <i>i</i>, <i>j</i>
+(corresponding to some pair of direction cosines <i>l</i>, <i>m</i>).  But
+the structure of the input data suggests dealing with <i>u</i>, <i>v</i>
+values in the <i>outermost</i> loop (which reads lines containing
+<i>u</i>, <i>v</i> values from the input file).  Then <i>inner</i>
+loops over <i>i</i>, <i>j</i> accumulate contributions from this
+<i>u</i>, <i>v</i> pair to every pixel <i>i</i>, <i>j</i>.</p>
+
+<p>
+This arrangement will also facilitate optimization of the inner loops,
+because they loop over regularly spaced <i>l</i>, <i>m</i> values, whereas
+<i>u</i>, <i>v</i> are irregularly spaced and less amenable to simple
+optimizations.
+It is always a good idea to make <i>inner</i> loops easy to optimize.</p>
+
+<p>
+So the main <tt>while(true)</tt> loop is reading lines from the input
+file "vis-and-uv.txt".  It splits each line into separate fields and extracts
+visibilities and <i>u</i>, <i>v</i> values from these fields.</p>
+
+<p>
+This is actually a LOFAR data set, and it turns out there are <i>four</i>
+complex visibilities corresponding to four possible polarizations of
+the radio waves received.  We just consider an overall unpolarized signal
+by adding together XX and YY components of polarization, which is what
+is computed in the assignment to <i>reVis</i> and <i>imVis</i> (the
+input file represents the complex numbers by their separate amplitudes
+and phases).</p>
+
+<p>
+The inner loops over <i>i</i>, <i>j</i> deal with the range of values
+of the angular variable <i>l</i> and <i>m</i> in the image.  These
+loops should look similar to other loops we have seen calculating Fourier
+transforms in previous weeks.  The array <tt>rawImage</tt> accumulates the
+inverse Fourier transform of the visibilites.  The array <tt>dirtyBeam</tt>
+accumulates the "dirty beam" as defined on slide 24 of the lecture.</p>
+
+<p>
+Download the input file <a href="/Lab Work/Week 4/vis-and-uv.txt">vis-and-uv.txt</a>.
+This could take some time because it is a 100MB file.  It contains
+the better part of 2 million lines, each corresponding to a single reading.</p>
+
+<p>
+The program uses the support class <tt>DisplayDensity</tt> provided in
+week 1.  I suggest you edit this to set <tt>CELL_SIZE = 4</tt>, otherwise
+the displayed images will look rather small.</p>
+
+<p>
+You should now be able to run the <tt>Imaging</tt> program as it stands.
+The drawback is that it will be very slow, and may not finish before the
+end of the lab session.</p>
+
+<p>
+As it runs the program displays the <i>u</i>, <i>v</i> coverage of entries read
+so far.  The file seems to be arranged in chronological order of when the
+readings were taken, so you should be able to see this coverage steadily
+improve as the Earth rotates.</p>
+
+<!--
+<h2>Exercise</h2>
+
+<p>
+The program effectively uses naive Discrete Fourier Transforms.  As mentioned
+in the lecture, a production code will probably project <i>u</i>, <i>v</i>
+readings onto a regular grid and use FFTs, leading to much better performance.
+But the projections here involve non-trivial interpolation techniques and
+are outside our scope.</p>
+
+<p>
+However the time for execution of the provided <tt>Imaging</tt> class is
+dominated by computation of trig functions in the body of the innermost
+loop, and we can at least reduce this overhead dramatically.</p>
+
+<p>
+Note that within the innermost <i>j</i> loop, the trig functions are
+effectively computing a geometric series in powers of an imaginary
+exponential.  We can use this observation to replace each pair of
+<i>cos</i>, <i>sin</i> evaluations by one complex multiplication.</p>
+
+<p>
+Replace the inner <i>i</i>, <i>j</i> loops by code like this:
+<pre>
+            double delArg = 2 * Math.PI * CELL * V ;
+            double multRe = Math.cos(delArg) ;
+            double multIm = Math.sin(delArg) ;
+            for (int i = 0 ; i < N ; i++) {
+                double l = (i - N / 2) * CELL ;
+                double m0 = -(N / 2) * CELL ;
+                double arg = 2 * Math.PI * (l * U + m0 * V) ;
+                double expRe = Math.cos(arg) ;
+                double expIm = Math.sin(arg) ;
+
+                for (int j = 0 ; j < N ; j++) {
+
+                    rawImage [i] [N - j - 1] += reVis * expRe - imVis * expIm ;
+                    dirtyBeam [i] [N - j - 1] += expRe ;
+
+                    <span style="color:red">... replace complex number exp by mult * exp ...</span>
+                }
+            }
+</pre>
+I have left you to fill in the code that multiplies <tt>exp</tt>
+by <tt>mult</tt>.  These are complex numbers represented in the code
+by real and imaginary parts <tt>expRe</tt>, <tt>expIm</tt> and <tt>multRe</tt>,
+<tt>multIm</tt> respectively.  Use the formulae for complex multiplication
+given on slide 27 of lecture 1, and remember you will have to use temporaries
+for storing the old values of <tt>exp</tt> before overwriting them.</p>
+
+<p>
+I found the new version of the program was about an order of magnitude
+faster.</p>
+
+-->
+
+<h2>Postscript</h2>
+
+<p>
+The image you produce is likely to be slightly non-descript and
+disappointing.</p>
+
+<p>
+I inherited this dataset from a Ph.D. student who was working with the
+LOFAR team a few years ago.  Unfortunately I think the measurement set he
+downloaded from LOFAR may not have been the proper data for this group
+of sky observations.</p>
+
+<p>
+I am pretty happy that our simple processing of the data is sound,
+because I have loaded the same measurement set into
+<a href="https://casa.nrao.edu/">CASA</a>, a standard software package
+used by astronomers for imaging and other tasks.  That gives the following
+image:</p>
+<p>
+<img src="./week4-lab_files/Casa-image.PNG" height="400">
+</p>
+<p>
+This has recognizably the same structure as output from our <tt>Imaging</tt>
+program.
+</p>
+<p>
+But while preparing this lab script I found a
+<a href="https://www.astron.nl/lofarscience2011/presentations/Day02_Broderick.pdf">publication from LOFAR</a>
+that happens to contain an image of the same area of sky, and it looks
+completely different (and much more interesting):</p>
+<p>
+<img src="./week4-lab_files/Bell-Broderick-Image.PNG" height="400">
+</p>
+<p>
+The position of the central "swirl" of our image does closely match
+that of the strongest source in the official version (in the upper
+left quadrant).  But otherwise we have lost all detail.</p>
+
+<p></p>
+As I said, I suspect my student downloaded a measurement set that was
+perhaps uncalibrated data or perhaps some kind of subtraction or residual
+byproduct of the proper processing.<p></p>
+
+<p>
+Unfortunately I no longer have any direct way to access LOFAR data.
+But there are now many public data and science archives from radio
+telescopes where it should be possible to download more interesting
+visibility data.  In principle it should just be a matter of converting
+this data to a readable format... sadly I ran out of time for
+this practical.</p>
+
+<p>
+By the way the text file "vis-and-uv.txt" was extracted from an original
+CASA format measurement set using the CASA <i>listvis</i> task.
+I had to truncate the last 5% of the file to fit the text file into the 100MB
+upload limit of Moodle!</p>
+
+<div id="footer">
+Copyright © University of Portsmouth, 2020
+</div>
+
+
+
+</div></div></body><grammarly-desktop-integration data-grammarly-shadow-root="true"><template shadowrootmode="open"><style>
+  div.grammarly-desktop-integration {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select:none;
+    user-select:none;
+  }
+
+  div.grammarly-desktop-integration:before {
+    content: attr(data-content);
+  }
+</style><div aria-label="grammarly-integration" role="group" tabindex="-1" class="grammarly-desktop-integration" data-content="{&quot;mode&quot;:&quot;full&quot;,&quot;isActive&quot;:true,&quot;isUserDisabled&quot;:false}"></div></template></grammarly-desktop-integration></html>

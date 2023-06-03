@@ -1,0 +1,251 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link href="./week1-lab_files/mystyle.css" rel="stylesheet" type="text/css">
+</head>
+
+<body style="" data-new-gr-c-s-check-loaded="14.1111.0" data-gr-ext-installed="">
+
+<div id="container">
+
+<div id="header">
+<h1>Scientific Computing and Simulation, Lab 1: Fourier Tranforms for Image Filtering</h1>
+
+</div>
+
+<div id="content">
+
+<p>
+This week and the next couple of weeks we will be looking
+at the uses of Fourier analysis in filtering and reconstructing images -
+I hope to cover examples from medical and astronomical imaging.
+</p>
+
+<p>
+In this first week I will ask you to code up a naive two-dimensional
+Discrete Fourier Transform based on formulae in the lecture, and apply
+it to simple filtering of a sample image.</p>
+
+<h2>Some Support Classes</h2>
+
+<p>
+To give you a chance of completing this task in the time we have in the
+lab, I will provide a few support classes.  The code in these is mostly
+fairly short and shouldn't be hard to follow, but it would probably
+take some hours to code these things from scratch.</p>
+
+<p>
+First, the class <a href="/Lab Work/Week 1/ReadPGM/">ReadPGM</a> has a static
+read() method for reading an image file in
+<a href="https://en.wikipedia.org/wiki/Netpbm_format">PGM</a> format.
+For simplicity it only works with a square image of given size, and
+puts it's output in a given <tt>double [] []</tt> of greyscale values.
+See the main method of this class for example usage of the read() method.</p>
+
+<p>
+The class <a href="/Lab Work/Week 1/DisplayDensity/">DisplayDensity</a> displays a
+grey-scale representation of a "density" given in a <tt>double [] []</tt>
+array.  By default, the smallest value in this array will be scaled to display
+as black and the largest as white.</p>
+
+<p>
+The main method of ReadPGM also uses DisplayDensity to display the read
+image, so you can immediately test both these classes by downloading
+them and running ReadPGM.  You will also need a PGM image to read, and
+there is one in this file: <a href="/Lab Work/Week 1/wolf.pgm">wolf.pgm</a>.  To make
+thngs easier, ReadPGM by default reads from a file called "wolf.pgm",
+but you may have to experiment with where you place this file in your
+folder hierarchy - it depends on the Java development environment.
+It needs to be in the working directory of the running Java program
+(alternatively edit the code to give an absolute path name.)</p>
+
+<p>
+The wolf image is quite small.  You will soon discover why!</p>
+
+<p>
+The final support class I am going to provide you with is
+<a href="/Lab Work/Week 1/Display2dFT/">Display2dFT</a>.  This is designed to
+represent 2D Discrete Fourier Transforms.  The k,l components of these
+are complex numbers, so the input to this class is two <tt>double [] []</tt>
+arrays - one of real parts and one of imaginary parts.  The actual
+display is quite hard to interpret because there isn't an obvious
+way of representing complex numbers as pixels of an image.  It uses
+a colour coding to represent the "direction" of the complex number in
+the argand diagram.  The absolute size of the complex number is displayed
+through brightness of the colour, using a logarithmic scale, because this
+seems to work reasonably well for Fourier transforms.</p>
+
+<p>
+We will illustrate the use of Display2dFT shortly.</p>
+
+<h2>Doing a Fourier Transform</h2>
+
+<p>
+To save more time I will give you the skeleton of a program to perform
+a Discrete Fourier Transform:
+</p><pre>  public class SimpleFT {
+  
+      public static int N = 256 ;
+  
+      public static void main(String [] args) throws Exception {
+  
+          double [] [] X = new double [N] [N] ;
+          ReadPGM.read(X, "wolf.pgm", N) ;
+  
+          DisplayDensity display =
+                  new DisplayDensity(X, N, "Original Image") ;
+  
+          double [] [] CRe = new double [N] [N], CIm = new double [N] [N] ;
+  
+          for(int k = 0 ; k &lt; N ; k++) {
+              for(int l = 0 ; l &lt; N ; l++) {
+                  double sumRe = 0, sumIm = 0 ;
+                  // Nested for loops performing sum over X elements
+                  for(int m = <span style="color:red">...</span>) {
+                      for(int n = <span style="color:red">...</span>) {
+                           double arg = <span style="color:red">...</span> ;
+                           double cos = <span style="color:red">...</span> ;
+                           double sin = <span style="color:red">...</span> ;
+                           sumRe += cos * X [m] [n] ;
+                           sumIm += <span style="color:red">...</span> ;
+                      }
+                  }
+                  CRe [k] [l] = sumRe ;
+                  CIm [k] [l] = sumIm ;
+              }
+              System.out.println("Completed FT line " + k + " out of " + N) ;
+          }
+  
+          Display2dFT display2 =
+                  new Display2dFT(CRe, CIm, N, "Discrete FT") ;
+      }
+  }
+</pre>
+Try to fill in the omitted code based on the first equation in slide 34 of this week's lecture.  It involves two nested loops over <i>m</i>
+and <i>n</i> to do the sums in the equation over all elements of the
+input pixels
+in X.  Inside the loop you will need to calculate the argument <i>-2π(mk + nl)/N</i> of the imaginary exponential, and then use the Java sin and cos functions
+to calculate the exponential according to the famous formulae on slide 27 (what effect does the minus sign in the exponent have here?)
+Multiplication of the resulting complex number by X components is easy,
+because X is a real number - it just scales the real and imaginary parts
+independently.<p></p>
+
+<p>
+If you get this right, the program is likely to take a few minutes to run -
+a problem we will fix in later weeks by using the Fast Fourier Transform
+algorithm.</p>
+
+<h2>Inverse Fourier Transform</h2>
+
+<p>
+Next we will confirm that we can recover exactly the original image
+by inverting the transform on the represented in coefficients C.</p>
+
+<p>
+Add this skeleton code to the end of the main method above:
+</p><pre>          double [] [] reconstructed = new double [N] [N] ;
+
+          for(int m = 0 ; m &lt; N ; m++) {
+              for(int n = 0 ; n &lt; N ; n++) {
+                  double sum ;
+                  <span style="color:red">... nested for loops performing sum over C elements</span>
+                  reconstructed [m] [n] = sum ;
+              }
+              System.out.println("Completed inverse FT line " + m + " out of " + N) ;
+          }
+
+          DisplayDensity display3 =
+                  new DisplayDensity(reconstructed, N, "Reconstructed Image") ;
+</pre>
+According to the second formula on slide 34, the code in the body of the
+nested loops over <i>k</i> and <i>l</i> will have quite a similar structure
+to the loop you wrote previously except:
+<ul>
+<li>
+There is no minus sign in the argument of the imaginary exponential.</li>
+<li>
+In the earlier loop we multiplied the imaginary exponential by a real
+number to obtain a complex number; here we will be multiplying together
+<i>two</i> complex numbers, though we will ignore the imaginary part of
+the result.  Actually the imaginary part should be zero, so we only need
+to calculate the real part.</li>
+</ul>
+You can use the formula at the bottom of slide 26 to do this multiplication -
+the product of complex numbers <i>a + bi</i> and <i>c + di</i>
+has a real part of the form <i>ac - bd</i>, so a term in the sum will have a structure like
+<tt>cos * CRe - sin * CIm</tt>.  But you need to fill in arguments and subscripts!<p></p>
+
+<h2>Filtering Images with Fourier Transforms</h2>
+
+<p>Many kinds of filter can be efficiently applied to images using
+Fourier Transformed, including sophisticated filters based on
+<i>convolutions</i>.  For the purposes of this lab we consider a very
+simple kind of "low pass filter", where we simply omit Fourier components
+with large wave numbers before reconstructing the image.</p>
+
+<p>
+In between the two code segments you wrote above, try adding these
+lines:
+</p><pre>          int cutoff = N/8 ;  // for example
+          for(int k = 0 ; k &lt; N ; k++) {
+              int kSigned = k &lt;= N/2 ? k : k - N ;
+              for(int l = 0 ; l &lt; N ; l++) {
+                  int lSigned = l &lt;= N/2 ? l : l - N ;
+                  if(Math.abs(kSigned) &gt; cutoff || Math.abs(lSigned) &gt; cutoff) {
+                      CRe [k] [l] = 0 ;
+                      CIm [k] [l] = 0 ;
+                  }
+              }
+          }
+
+          Display2dFT display2a =
+                  new Display2dFT(CRe, CIm, N, "Truncated FT") ;
+
+</pre>
+<!--
+See slide 18 for the definition and significance of <i>k<sub>signed</sub></i>.
+</p>
+-->
+
+<p>
+For simplicity in the above code, we have applied Display2dFT twice to
+the same array, and modified the array in between, which may lead to
+some odd effects - hopefully they won't be confusing.</p>
+
+<p>
+You should also try implementing a high pass filter, for example by inverting
+the test condition in the if statement above.</p>
+
+<p>
+By now you will see quite obviously why we only considered a small image
+in this lab, and may be doubtful about the claim that the DFT can be used to
+filter images "efficiently"!  Hopefully these doubts will be resolved
+when we go on to consider the Fast Fourier Transform.</p>
+
+</div>
+
+<div id="footer">
+Copyright © University of Portsmouth, 2022
+</div>
+
+
+
+</div></body><grammarly-desktop-integration data-grammarly-shadow-root="true"><template shadowrootmode="open"><style>
+  div.grammarly-desktop-integration {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select:none;
+    user-select:none;
+  }
+
+  div.grammarly-desktop-integration:before {
+    content: attr(data-content);
+  }
+</style><div aria-label="grammarly-integration" role="group" tabindex="-1" class="grammarly-desktop-integration" data-content="{&quot;mode&quot;:&quot;full&quot;,&quot;isActive&quot;:true,&quot;isUserDisabled&quot;:false}"></div></template></grammarly-desktop-integration></html>

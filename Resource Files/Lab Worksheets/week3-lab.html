@@ -1,0 +1,358 @@
+
+<!-- saved from url=(0086)https://moodle.port.ac.uk/pluginfile.php/3168745/mod_resource/content/5/week3-lab.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link href="./week3-lab_files/mystyle.css" rel="stylesheet" type="text/css">
+</head>
+
+<body style="" data-new-gr-c-s-check-loaded="14.1111.0" data-gr-ext-installed="">
+
+<div id="container">
+
+<div id="header">
+<h1>Scientific Computing and Simulation, Lab 3: Inverting the Radon Transform</h1>
+
+</div>
+
+<div id="content">
+
+<p>
+A CT scanner initially yields a certain projection of the density distribution
+in a slice through a subject (usually a human).  Mathematically, what is
+measured by the X-Ray detectors is (trivially related to) a <i>Radon transform</i>
+of that density function.  The problem of forming an image of the interior
+of the subject is then a matter of <i>inverting</i> the Radon transform.
+</p>
+
+<p>
+This week I will give you a simulated density distribution for the interior
+of a subject's skull, and from that derive the Radon transform - which
+we present as a <i>sinogram</i>.  Then the main challenge is to reverse
+that process to recover the original model from the sinogram (or Radon
+transform).</p>
+
+<h2>The Given Program</h2>
+
+<p>
+To give you a head start I will provide one new support class and a starting
+point for your main program.</p>
+
+<p>
+The new support class, which will be useful later, is
+<a href="/Lab Work/Week 3/DisplaySinogramFT/">DisplaySinogramFT</a>.  This is almost
+identical to the class Display2dFT you used in the last two weeks,
+except it is slightly tailored to work better when the Fourier transform
+displayed only applies in one of two dimensions (the innermost index of
+the two dimensional Java array provided - or the vertical axis on the
+display).</p>
+
+<p>
+The starting point for your main program is in the class
+<a href="/Lab Work/Week 3/Sinogram/">Sinogram</a>.  Its main method looks like this:
+</p><pre>    static final float GREY_SCALE_LO = 0.95f, GREY_SCALE_HI = 1.05f ;
+        // Clipping, for display only.  See for example Figure 1 in:
+        //    http://bigwww.epfl.ch/thevenaz/shepplogan/
+
+    public static void main(String [] args) {
+
+        double [] [] density = new double [N] [N] ;
+
+        for(int i = 0 ; i &lt; N ; i++) {
+            double x = SCALE * (i - N/2) ;
+            for(int j = 0 ; j &lt; N ; j++) {
+                double y = SCALE * (j - N/2) ;
+
+                density [i] [j] = sheppLoganPhantom(x, y) ;
+            }
+        }
+
+        DisplayDensity display1 =
+                new DisplayDensity(density, N, "Source Model",
+                                   GREY_SCALE_LO, GREY_SCALE_HI) ;
+
+        // Radon tranform of density (as measured by detectors):
+
+        double [] [] sinogram = new double [N] [N] ;
+
+        for(int iTheta = 0 ; iTheta &lt; N ; iTheta++) {
+            double theta = (Math.PI * iTheta) / N ;
+            double cos = Math.cos(theta) ;
+            double sin = Math.sin(theta) ;
+            for(int iR = 0 ; iR &lt; N ; iR++) {
+                double r = SCALE * (iR - N/2) ;
+                double sum = 0 ;
+                for(int iS = 0 ; iS &lt; N ; iS++) {
+                    double s = SCALE * (iS - N/2) ;
+                    double x = r * cos + s * sin ;
+                    double y = r * sin - s * cos ;
+                    sum += sheppLoganPhantom(x, y) ;
+                }
+                sinogram [iTheta] [iR] = sum ;
+            }
+        }
+
+        DisplayDensity display2 = new DisplayDensity(sinogram, N, "Sinogram") ;
+
+        // inferred integral of density points (actually sum of density
+        // points, here) for laternormalization of reconstruction
+
+        double normDensity = norm1(sinogram [0]) ;
+
+
+        <span style="color:red">// ... Insert sinogram filtering code here! ...</span>
+
+
+        double [] [] backProjection = new double [N] [N] ;
+        backProject(backProjection, sinogram) ;
+
+        // Normalize reconstruction, to have same sum as inferred for
+        // original density
+
+        double factor = normDensity / norm2(backProjection) ;
+        for(int i = 0 ; i &lt; N ; i++) {
+            for(int j = 0 ; j &lt; N ; j++) {
+                backProjection [i] [j] *= factor ;
+            }
+        }
+
+        DisplayDensity display5 =
+                new DisplayDensity(backProjection, N,
+                                   "Back projected sinogram") ;
+    }
+</pre>
+You can initially run this code as it is.  It should pop up initially
+a "source model", which is the model of a slice through a body that we are
+simulating.  Then a little later the calculated sinogram will appear.
+Finally it will pop up a window of the "backprojected sinogram", which
+corresponds to the "pure" backpropagation approach to reconstruction
+discussed in the lecture - an intuitive but mathematically crude approach
+to image reconstruction.<p></p>
+
+<p>
+Before refining the image reconstruction, you will need some explanation of
+the parts of this program.</p>
+
+<p>
+The "source model" here is a famous test image used in medical image
+reconstruction.  It is called the
+<a href="https://en.wikipedia.org/wiki/Shepp%E2%80%93Logan_phantom">Shepp
+Logan Phantom</a>.  It represents a cross section of a head, with 
+enlosing skull, brain, and structures within the brain.  Densities
+within the model are quite realistic, with the skull having density
+2 (twice the density of water) and all other internal structures having
+density close to one.</p>
+
+<p>
+Mathematically the phantom is built up from a series of ellipses layered
+on top of one another, with some having positive and some negative
+contribution (but such that the total density at any point inside the
+skull is close to one).</p>
+
+<p>
+If you google for sites that discus numerical inversion of the Radon
+tranform, you will find many of them use something that <i>looks</i> like
+the Shepp Logan Phantom as their case study.  But beware that many of these
+sites grossly simplify the problem by using much more widely varying
+densities, so that a <i>linear</i> gray scale image looks similar to our
+rendering of the source model.  But, in our display of the source
+model, the grey scale has been clipped so that anything with density below
+0.95 looks black and anything about 1.05 looks white.  With a linear grey
+scale, the internal structures would be barely visible.  Reconstructing
+structures with such small differences in density is a real challenge.</p>
+
+<p>
+The first section of the main code calculates an array <tt>density</tt>
+of values of the model, purely so it can be displayed (you will need
+to import the class DisplayDensity given in earlier weeks).
+</p>
+
+<p>
+The next section of the code calculates the Radon tranform, approximating
+the mathematical integral of the model density using sums along a path
+at angle <i>θ</i>, and perpendicular distance <i>r</i> from the
+origin.  So this section of code is simulating the actual process of
+doing a CT scan.  The simulated output of the detectors is recorded in the
+array called <tt>sinogram</tt>.  This two dimensional array (first index
+corresponding to <i>θ</i>, second to <i>r</i>) is then plotted.
+This looks a little like, and indeed corresponds to, traditional
+hard-to-interpret X-ray images you may have seen.</p>
+
+<p>
+Then we make a naive attempt at image reconstruction using pure backprojection.
+You should take a quick look at the method <tt>backProject</tt> in
+<a href="/Lab Work/Week 3/Sinogram/">Sinogram</a>.  As explained in the lecture,
+it is an integral over theta, approximated here as a discrete sum.  Simple
+linear interpretation in the <i>r</i> dimension is used to estimate
+the value of the Radon transform from measured points neighbouring
+each required point.</p>
+
+<p>
+Before displaying the reconstruction <tt>backProjection</tt>, one final
+step normalize it to have the same "norm" as the original density.
+Here the norm is
+defined as the sum or integral of the density over the whole region of
+space containing the subject.  In a real situation we don't know this
+norm for the subject in advance; but luckily we can easily extract it
+from the measured Radon transform, as done here.</p>
+<p></p>
+
+
+
+<h2>Filtered Back Projection</h2>
+
+<p>
+Fill in the code omitted above that filters the sinogram using FFTs,
+before backprojection.
+For this you should use the class <tt>FFT</tt> provided last week.</p>
+
+<p>
+The first stage will be to calculate the complex Fourier transform of
+the sinogram, transforming in the innermost <i>r</i> array subscript
+only.
+</p>
+
+<p>
+This should be rather straightforward.  Here is some skeleton code:
+</p><pre>        double [] [] sinogramFTRe = new double [N] [N],
+                     sinogramFTIm = new double [N] [N] ;
+        for(int iTheta = 0 ; iTheta &lt; N ; iTheta++) {
+            for(int iR = 0 ; iR &lt; N ; iR++) {
+                sinogramFTRe [iTheta] [iR] = sinogram [iTheta] [iR] ;
+            }
+        }
+
+        for(int iTheta = 0 ; iTheta &lt; N ; iTheta++) {
+             <span style="color:red">... do 1D FFT on a row ...</span>
+        }
+
+        DisplaySinogramFT display3 =
+                new DisplaySinogramFT(sinogramFTRe, sinogramFTIm, N,
+                                      "Sinogram radial Fourier Transform") ;
+</pre>
+This should be somewhat simpler than the uses of <tt>fft1d()</tt> last
+week, because
+you are only transforming the <i>inner</i> dimension of the 2d array;
+only single calls to the FFT, and no need for any transposes.
+<p></p>
+
+<p>
+The second stage is to apply a filter to the rows of Fourier transform.
+For simplicity you can do this in place on the arrays <tt>sinogramFTRe</tt>,
+<tt>sinogramFTIm</tt>.  So you need a loop something like this:
+</p><pre>        for(int iTheta = 0 ; iTheta &lt; N ; iTheta++) {
+            for(int iK = 0 ; iK &lt; N ; iK++) {
+                int kSigned = iK &lt;= N/2 ? iK : iK - N ;
+                <span style="color:red">... multiply Sinogram FT by abs(kSigned) ...</span>
+            }
+        }
+</pre>
+Remember to take the <i>absolute</i> value of <tt>kSigned</tt>, and
+multiply elements of both <tt>sinogramFTRe</tt>,
+<tt>sinogramFTIm</tt> by this number.<p></p>
+
+<p>
+We came across the definition <tt>kSigned</tt> in week 1 lecture and labs.</p>
+
+<p>
+<i>Now, in another loop over <tt>iTheta</tt>, invert the FFT on the
+sinogram</i>.  Again you can do this "in place" if you wish - no need to
+declare any new complex arrays here.  (Hint: you already wrote the code
+to do this - just change a 1 to a -1!)</p>
+
+<p>
+After completing this filtering, you can display the filtered sinogram by
+something like:
+</p><pre>        DisplayDensity display5 =
+                new DisplayDensity(sinogramFTRe, N, "Filtered sinogram") ;
+</pre>
+(Now we have done the in place inverse FT, of course,
+<tt>sinogramFTRe</tt> is no longer a Fourier transform - it is the
+filtered sinogram in real space variables.)
+<p></p>
+
+<p>
+If you do things this way, only other change to original main method given
+above is that this line:
+</p><pre>        backProject(backProjection, sinogram) ;
+</pre>
+should change to:
+<pre>        backProject(backProjection, sinogramFTRe) ;
+</pre>
+<p></p>
+
+<p>
+The reconstructed image as displayed will be much sharper than the
+original version using pure backprojection, but you will have difficulty
+making out the internal structures of our "brain".  This is because
+we used a linear gray scale.</p>
+
+<p>
+So finally change the lines:
+</p><pre>        DisplayDensity display5 =
+                new DisplayDensity(backProjection, N,
+                                   "Back projected sinogram") ;
+</pre>
+to:
+<pre>        DisplayDensity display5 =
+                new DisplayDensity(backProjection, N,
+                                   "Back projected sinogram",
+                                   GREY_SCALE_LO, GREY_SCALE_HI) ;
+</pre>
+and run the program again.<p></p>
+
+<p>
+Now unfortunately you will see a lot of noise in the reconstructed image.
+But you should be able to identify the main structures from the original
+model.</p>
+
+<h2>Exercises</h2>
+
+<p>
+The raw <i>|K|</i> filter we have used is called a "ramp filter".
+In practice a variety of different filters are used to try to reduce
+noise in the image.</p>
+
+<p>
+For example the <i>Ram Lak Filter</i> multiplies the FT by <i>|K|</i>
+but also zeros components with <i>|K|</i> greater than some <tt>CUTOFF</tt>.
+Try this with <tt>CUTOFF</tt> set to <i>N/4</i>.</p>
+
+<p>
+A <i>Low Pass Cosine Filter</i> multiplies the FT by:
+</p><pre>    |<i>K</i>| cos(π<i>K</i>/(2 CUTOFF))
+</pre>
+and also sets the components to zero for <i>|K|</i> greater than
+<tt>CUTOFF</tt>.  Try this with the same or other cutoffs.<p></p>
+
+<p>
+Real CT scanners will also use iterative improvement of the basic
+reconstructions we have considered.  Unfortunately this is beyond the
+scope of this module.</p>
+<p></p>
+
+<div id="footer">
+Copyright © University of Portsmouth, 2020
+</div>
+
+
+
+</div></div></body><grammarly-desktop-integration data-grammarly-shadow-root="true"><template shadowrootmode="open"><style>
+  div.grammarly-desktop-integration {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select:none;
+    user-select:none;
+  }
+
+  div.grammarly-desktop-integration:before {
+    content: attr(data-content);
+  }
+</style><div aria-label="grammarly-integration" role="group" tabindex="-1" class="grammarly-desktop-integration" data-content="{&quot;mode&quot;:&quot;full&quot;,&quot;isActive&quot;:true,&quot;isUserDisabled&quot;:false}"></div></template></grammarly-desktop-integration></html>

@@ -1,0 +1,305 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link href="./projects_files/mystyle.css" rel="stylesheet" type="text/css">
+</head>
+
+<body style="" data-new-gr-c-s-check-loaded="14.1111.0" data-gr-ext-installed="">
+
+<div id="container">
+
+<div id="header">
+<h1>Scientific Computing and Simulation: Mini-project List for Coursework</h1>
+
+</div>
+
+<div id="content">
+
+<p>
+Select and undertake <i>one</i> of the following five projects as part of your coursework for this module.
+</p>
+
+<ol>
+<li>
+<p>
+Using thread parallelism in Java, make a parallel version of the 2-dimensional Fast Fourier Transform developed in the week 2 practical session.  Note that you do <i>not</i> need to parallelize or modify the 1D FFT operation to achieve this.
+</p>
+<p>
+Benchmark your parallel program for different numbers of threads on a suitable dataset - you may start with the "wolf" image introduced in practical 1.  Preferably, repeat this for a series of datasets.  You may need to consider larger monochrome input images for successful parallelization.  Here is a crude way to read an image density array from a monochrome PNG file:
+</p><pre>  import java.io.File ;
+
+  import java.awt.image.Raster ;
+  import java.awt.image.BufferedImage ;
+
+  import javax.imageio.ImageIO ;
+
+  [...]
+  public static int N = 512 ;  // or whatever square value
+
+  [...]
+  double [] [] density = new double [N] [N] ;
+
+  BufferedImage img = ImageIO.read(new File("some-file.png"));  // or whatever
+
+  Raster ras = img.getData() ;
+  for (int i = 0 ; i &lt; N ; i++) {
+      for (int j = 0 ; j &lt; N ; j++) {
+          density [i] [j] = ras.getSample(i, j, 0) ;
+      }
+  }
+</pre>
+<p></p>
+<p>
+[<i>Harder variant</i>: parallelize a 1D FFT.]
+</p>
+</li>
+<li>
+If you have some experience with C/C++ programming and access to a C/C++ development system, install and experiment with the <a href="http://www.fftw.org/">Fastest Fourier Transform in the West</a>.<p></p>
+
+<p>
+You may test and benchmark this library on random one-dimensional and two-dimensional data.  If you have more experience with C or C++ you may be able to load two-dimensional image data and experiment with that.</p>
+
+<p>
+If possible in the time available, build the thread parallel version of the library (this will probably be most practical on Linux systems) and benchmark that on a multicore processor.</p>
+</li>
+<li>
+<p>
+Research and experiment with the <h href="https://en.wikipedia.org/wiki/Simultaneous_algebraic_reconstruction_technique">Simultaneous Algebraic Reconstruction Technique (SART) for reconstruction of CT scan images.</h></p>
+
+<p>
+You should <i>not</i> attempt to code the algorithms yourself, but instead follow the general instructions at this <a href="https://scikit-image.org/docs/dev/auto_examples/transform/plot_radon_transform.html">scikit-image page</a> for carrying out your experiments.</p>
+
+<p>
+The images at that site are based on a somewhat "faked" version of the Shepp-Logan Phantom with an exaggerated contrast ratio, which makes reconstruction artificially simple.  You should replace the lines:
+</p><pre>  from skimage.data import shepp_logan_phantom
+  [...]
+  image = shepp_logan_phantom()
+  image = rescale(image, scale=0.4, mode='reflect', multichannel=False)
+</pre>
+with something like:
+<pre>  from skimage.io import imread
+  [...]
+  image = imread("shepp-logan.png", as_gray=True)
+</pre>
+where you can find the "correct" phantom in this file: <a href="/Mini-Project/shepp-logan.png">shepp-logan.png</a>.  (The internal features really are there in this file, though they are hard to see on a default gray scale!)<p>
+
+</p><p>
+In the sample Python code, when original and reconstructed images of the phantom are displayed by calls like:
+</p><pre>  ax1.imshow(image, cmap=plt.cm.Greys_r)
+</pre>
+replace these with calls like:
+<pre>  ax1.imshow(image, cmap=plt.cm.Greys_r, vmin=0.475, vmax=0.525)
+</pre>
+so that low-contrast details are exposed (this implements the same kind of grey scale clipping that we did with the variables <tt>GREY_SCALE_LO</tt>, <tt>GREY_SCALE_HI</tt> in the week 3 lab.)<p></p>
+
+<p>
+Try to increase the size of displayed images, and compare the quality of reconstruction of Filtered Back Projection with 1, 2, 3 etc iterations of SART.</p>
+
+<p>
+Also you may experiment with different image sizes - the file "shepp-logan.png" was created by <a href="/Resource Files/Lab Worksheets/Projects Codes/SheppLoganImage.java">SheppLoganImage.java</a> which you may adjust to create larger images.</p>
+
+<p>
+Where practical, benchmark your reconstruction approaches.</p>
+</li>
+<li>
+Make a thread parallel version of the FHP lattice gas model provided in the week 5 practical session.<p></p>
+
+<p>
+In order to see useful parallel speedups, you will probably need to increase the grid size.  In turn this implies you may have to change the display to a more compact version that just displays a reduced cell per lattice site, perhaps with colour coded macroscopic velocity (similar to what was discussed in exercises at the end of the week 5 lab script).  Thus the display would be more similar to that used for Lattice Boltzmann models in later lab scripts.</p>
+
+<p>
+The parallelization would in general follow similar lines to the Game of Life or the Laplace equation in your Parallel Programming module.  It should be accompanied with benchmarks for various lattice sizes and numbers of threads.  Make sure barrier synchronizations are correctly placed.</p>
+
+<p>
+[<i>Harder variant</i>: parallelize any lattice gas model using AparaAPI.  Unfortunately AparapAPI kernels won't parallelize on GPUs if you try to access multidimensional arrays, so a first step would be to "flatten" all multidimensional arrays to one-dimensional arrays.]</p>
+</li>
+<li>
+Make a thread parallel version of the Lattice Boltzmann Model simulations provided in the week 7 or week 8 practical sessions.<p></p>
+
+<p>
+Many considerations similar to the previous project topic apply, although
+in this case it should be possible to observe parallel speedup without scaling up the larger lattice sizes already considered in these later labs.</p>
+</li>
+</ol>
+
+
+</div>
+
+<div id="footer">
+Copyright © University of Portsmouth, 2022
+</div>
+
+
+
+</div><div id="naptha_container0932014_0707"></div></body><grammarly-desktop-integration data-grammarly-shadow-root="true"><template shadowrootmode="open"><style>
+  div.grammarly-desktop-integration {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select:none;
+    user-select:none;
+  }
+
+  div.grammarly-desktop-integration:before {
+    content: attr(data-content);
+  }
+</style><div aria-label="grammarly-integration" role="group" tabindex="-1" class="grammarly-desktop-integration" data-content="{&quot;mode&quot;:&quot;full&quot;,&quot;isActive&quot;:true,&quot;isUserDisabled&quot;:false}"></div></template></grammarly-desktop-integration><span style="--colorFg:#dae1ec; --colorFgFadedMore:#c3c9d3; --colorBg:#080a16; --colorBgDark:#000010; --colorBgLighter:#1d1f28; --colorBorder:#30323c;"><template shadowrootmode="closed"><style>
+:host {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  width: 0;
+}
+.vivaldi-translate-text-container {
+  display: block;
+  position: relative;
+  font-family: 'Roboto',arial,sans-serif;
+  font-size: 14px;
+  min-height: 150px;
+  min-width: 250px;
+  max-width: 1000px;
+  background-color: var(--colorBgLighter);
+  color: var(--colorFg);
+  box-shadow: 0px 0px 5px 2px rgba(0, 0, 0, 0.2);
+  border-width: 1px;
+  border-style: solid;
+  border-image: initial;
+  border-color: rgb(187, 187, 187) rgb(187, 187, 187) rgb(168, 168, 168);
+  border-radius: 6px;
+  margin: 0;
+  padding: 0;
+  z-index: 2147483647;
+}
+.vivaldi-translate-text-container.initial {
+  display: none;
+  height: 0;
+}
+.vivaldi-translate-text-close {
+  position: relative;
+  cursor: pointer;
+  background-color: var(--colorBgLighter);
+  border: 0;
+  left: calc(100% - 20px);
+  top: 5px;
+  margin: 0;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+}
+.vivaldi-translate-text-close > svg {
+  fill: var(--colorFg);
+}
+.vivaldi-translate-text-close:hover {
+  background-color: var(--colorBg);
+}
+.vivaldi-translate-text,
+.vivaldi-translate-text-result {
+  position: relative;
+  cursor: text;
+  -webkit-appearance: none;
+  top: 0px;
+  left: 0px;
+  overflow-y: auto;
+  margin-right: 10px;
+  margin-bottom: 16px;
+  padding: 6px;
+  border-width: 0px;
+  height: 100%;
+  transition: opacity 0.3s;
+  outline: unset;
+  color: var(--colorFgFadedMore);
+}
+.vivaldi-translate-text-result {
+  color: var(--colorFg);
+}
+.vivaldi-translate-text-result-container {
+  margin: 0;
+  padding: 0;
+  padding-top: 12px;
+  background-color: var(--colorBg);
+  border-width: 1px 0 1px 0;
+  border-style: solid;
+  border-image: initial;
+  border-color: var(--colorBorder);
+}
+.vivaldi-translate-select-languages {
+  width: 200px;
+  font-family: 'Roboto',arial,sans-serif;
+  font-size: 12px;
+  margin-left: 6px;
+  background-color: var(--colorBgLighter);
+  color: var(--colorFg);
+}
+.vivaldi-translate-src-language,
+.vivaldi-translate-dest-language {
+  padding-left: 6px;
+  font-weight: 600;
+  font-size: 10px;
+}
+.vivaldi-translate-language {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.vivaldi-translate-timing {
+  font-size: 8px;
+  text-align: right;
+  margin-right: 6px;
+  margin-bottom: 6px;
+  padding: 0 6px;
+}
+.vivaldi-translate-footer {
+  font-size: 10px;
+  padding: 4px;
+  background-color: var(--colorBgDark);
+  margin: 0;
+  border-bottom-right-radius: 6px;
+  border-bottom-left-radius: 6px;
+}
+.vivaldi-translate-button-container {
+  display: block;
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0px 0px 5px 2px rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+  z-index: 2147483647;
+  width: 32px;
+  height: 32px;
+}
+.vivaldi-translate-button-container.initial {
+  display: none;
+  height: 0;
+}
+.vivaldi-translate-button {
+  position: relative;
+  -webkit-appearance: none;
+  background-color: var(--colorBg);
+  top: 0px;
+  left: 0px;
+  width: 32px;
+  height: 32px;
+  margin-left: 0px;
+  margin-top: 0px;
+  padding: 6px;
+  border-width: 1px;
+  transition: opacity 0.3s;
+  cursor: pointer;
+  outline: solid rgb(200, 200, 200);
+}
+.vivaldi-translate-button > svg {
+  fill: var(--colorFg);
+}
+.vivaldi-translate-button:hover {
+  background-color: var(--colorBgLighter);
+}
+</style><div class="vivaldi-translate-button-container initial" style="left: 1048px; top: 1316px;"><button class="vivaldi-translate-button"><svg width="16" height="16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M13.848 3.349v.99H12.63c-.457 1.264-1.074 2.297-1.852 3.15.871.675 1.937 1.18 3.222 1.47-.245.247-.567.725-.719 1.015-1.361-.35-2.46-.922-3.349-1.682C9.5 9 9 9.5 8 10l-.638-.969C8.053 8.708 9 8 9.162 7.533c-.76-.88-1.344-1.947-1.8-3.194h-1.21v-.99h3.315V2h1.024v1.349h3.357zM9.992 6.773c.608-.666 1.09-1.469 1.454-2.434H8.478c.363.922.862 1.742 1.514 2.434z"></path>
+  <path d="M5.846 11.558H3.15L2.636 13H1l2.78-7h1.425L8 13H6.364l-.518-1.442zm-2.282-1.169h1.867l-.939-2.62-.928 2.62z"></path>
+</svg></button></div></template></span></html>

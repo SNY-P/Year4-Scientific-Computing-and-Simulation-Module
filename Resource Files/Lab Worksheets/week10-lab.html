@@ -1,0 +1,288 @@
+
+<!-- saved from url=(0087)https://moodle.port.ac.uk/pluginfile.php/3168780/mod_resource/content/2/week10-lab.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link href="./week10-lab_files/mystyle.css" rel="stylesheet" type="text/css">
+</head>
+
+<body style="" data-new-gr-c-s-check-loaded="14.1111.0" data-gr-ext-installed="">
+
+<div id="container">
+
+<div id="header">
+<h1>Scientific Computing and Simulation, Lab 10: Solution of Differential Equations</h1>
+
+</div>
+
+<div id="content">
+
+<p>
+A relatively brief lab this week, to familiarize you with some basics of integrating ordinary differential equations.</p>
+
+<p>
+For a change we will use Python this week.  Python is in practice more widely
+used for scientific computing than Java, and as a result has many excellent
+libraries and software packages available to specifically support
+scientific applications.  In particular this week we will use part of
+<a href="https://www.scipy.org/">SciPy</a>.</p>
+
+<p>
+The scripts I give below have been designed to run under a Jupyter Notebook.
+Probably the easiest way to run Jupyter in the labs or at home will be by
+installing <a href="https://www.anaconda.com/">Anaconda</a> (it is available
+through AppsAnywhere, or free for home installation).</p>
+
+<p>
+You may in addition need to install the packages <i>scipy</i> and
+<i>matplotlib</i>, perhaps using conda.</p>
+
+<h2>Using the <i>scipy.integrate</i> packages</h2>
+
+<p>
+The example we will consider in this lab is Newton's equations of
+motion for motion of two bodies around one another under the force
+of gravity.  Many of You will have seen rather more complex code for
+similar motion of <i>thousands</i> of bodies in the Parallel Programming
+module last term (for example in the star simulation project idea).
+But the motivation here is just to familiarize
+ourselves with and compare integration methods on a simple example.</p>
+
+<p>
+Paste the following Python script into Jupyter or your preferred
+Python platform (the final lines displaying of the animation will probably
+need adaptation for platforms other than Jupyter).
+</p><pre>import matplotlib.pyplot as plt
+import matplotlib.animation
+import numpy as np
+
+import scipy.integrate
+
+m1 = 1
+(x1, y1) = (1.0, 0.0)
+(vx1, vy1) = (0, 0.2)
+
+m2 = 2
+(x2, y2) = (-0.5, 0.0)
+(vx2, vy2) = (0, -0.1)
+
+def grav(x1, y1, x2, y2):   
+    # inverse square law between two particles mass m1, m2
+    dx = x2 - x1
+    dy = y2 - y1
+    r2 = dx * dx + dy * dy
+    r3 = r2 ** 1.5
+    fx = dx / r3
+    fy = dy / r3
+    return (fx/m1, fy/m1, -fx/m2, -fy/m2)
+
+rs = [x1, y1, x2, y2]
+vs = [vx1, vy1, vx2, vy2]
+y = rs + vs
+
+def fun(t, y):
+    (x1, y1, x2, y2, vx1, vy1, vx2, vy2) = tuple(y)
+    (ax1, ay1, ax2, ay2) = grav(x1, y1, x2, y2)
+    return [vx1, vy1, vx2, vy2, ax1, ay1, ax2, ay2]
+
+res = scipy.integrate.solve_ivp(fun, (0, 50), y)
+ts = res.t
+ys = res.y
+
+fig = plt.figure(figsize=[6,6])
+ax = plt.axes([0., 0., 1., 1.], xlim=(-1.5,1.5), ylim=(-1.5,1.5))
+ax.set_aspect('equal')
+ax.axis('off')
+l = ax.scatter([x1, x2], [y1, y2], c=['blue', 'red'], s=[4, 8])
+
+def animate(i):
+    l.set_offsets(np.reshape(ys [0:4, i], (2,2)))
+
+ani = matplotlib.animation.FuncAnimation(fig, animate, frames=len(ts))
+
+from IPython.display import HTML
+HTML(ani.to_jshtml())
+</pre>
+<p></p>
+
+<p>
+Apart from the import directives, the top part of the code, to the
+end of the definition of the function <t>grav</t>, is concerned with
+initial conditions and definition the auxilliary function that calculates
+the accelerations due to gravitational force between two bodies.</p>
+
+<p>
+The bodies have masses <tt>m1</tt> and <tt>m2</tt>, their 2D positions
+are respectively <tt>(x1, y1)</tt> and <tt>(x2, y2)</tt>, and their
+respective velocites are  <tt>(vx1, vy1)</tt> and <tt>(vx2, vy2)</tt>.</p>
+
+<p>
+Note that this means we have altogether eight independent variables, and
+there initial values are collected together in the list <tt>y</tt>.</p>
+
+<p>
+The vector valued function (corresponding to <i>f</i> in this weeks lecture)
+that defines the system of equations is implemented by the Python function
+<i>fun</i>.</p>
+
+<p>
+The one-line heart of the script, which integrates the equations of motion,
+is the call to <i>scipy.integrate.solve_ivp</i>.  We pass it the function
+<i>fun</i>, the initial and final values of time (0 and 50), and the
+initial values of the dependent variables.  That's it.</p>
+
+<p>
+Read the documentation <a href="https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html">here</a> to learn more about
+how this function works and its capabilites.</p>
+
+<p>
+The remainder of the script is about plotting the motion of the bodies
+over the period of integration (in Java we were able to plot computational
+updates on the fly as they were performed - I haven't yet found an easy
+way to do this in Python - none that works in Jupyter, anyway)</p>
+
+<p>
+In the initial call to <i>scatter</i>, the arguments <tt>c</tt> and
+<tt>s</tt> just define the size of the two individual points in the plot.
+Other arguments may be more obvious.</p>
+
+<p>
+If you run this script it may take a little while to do the computation
+and create the animation, before you can actually view it.</p>
+
+<p>
+When you do so you should see the two bodies orbiting one another for
+some number of orbits.  Notice that eventually the size of the orbits
+starts to decay - energy is being lost from the simulated system.  This
+is not something that would happen in real life.</p>
+
+<h2>Using the Velocity Verlet algorithm</h2>
+
+<p>
+So far as I can see <i>scipy.integrate</i> doesn't implement the Leapfrog
+method or the equivalent Velocity Verlet algorithm.  In fact these algorithms
+are
+sufficiently simple that most people would probably implement them inline
+in their simulation code, which is what they do below:
+</p><pre>import matplotlib.pyplot as plt
+import matplotlib.animation
+import numpy as np
+
+m1 = 1
+(x1, y1) = (1.0, 0.0)
+(vx1, vy1) = (0, 0.2)
+
+m2 = 2
+(x2, y2) = (-0.5, 0.0)
+(vx2, vy2) = (0, -0.1)
+
+def grav(x1, y1, x2, y2):   
+    # inverse square law between two particles mass m1, m2
+    dx = x2 - x1
+    dy = y2 - y1
+    r2 = dx * dx + dy * dy
+    r3 = r2 ** 1.5
+    fx = dx / r3
+    fy = dy / r3
+    return (fx/m1, fy/m1, -fx/m2, -fy/m2)
+
+t=0
+tend=50
+dt = 0.01
+NITER = int((tend - t)/dt + 0.5)
+
+ys = np.zeros((4, NITER + 1))
+ys [:, 0] = [x1, y1, x2, y2]
+
+(ax1, ay1, ax2, ay2) = grav(x1, y1, x2, y2)
+for i in range(NITER):
+    vx1 += 0.5 * dt * ax1
+    vy1 += 0.5 * dt * ay1
+    vx2 += 0.5 * dt * ax2
+    vy2 += 0.5 * dt * ay2
+    x1 += dt * vx1
+    y1 += dt * vy1
+    x2 += dt * vx2
+    y2 += dt * vy2
+    (ax1, ay1, ax2, ay2) = grav(x1, y1, x2, y2)
+    vx1 += 0.5 * dt * ax1
+    vy1 += 0.5 * dt * ay1
+    vx2 += 0.5 * dt * ax2
+    vy2 += 0.5 * dt * ay2
+    ys [:, i+1] = [x1, y1, x2, y2]
+
+fig = plt.figure(figsize=[6,6])
+ax = plt.axes([0., 0., 1., 1.], xlim=(-1.5,1.5), ylim=(-1.5,1.5))
+ax.set_aspect('equal')
+ax.axis('off')
+l = ax.scatter([x1, x2], [y1, y2], c=['blue', 'red'], s=[4, 8])
+
+OUTPUT_FREQ=10 # display every 10 steps only
+
+def animate(i):
+    l.set_offsets(np.reshape(ys [0:4, OUTPUT_FREQ * i], (2,2)))
+
+ani = matplotlib.animation.FuncAnimation(fig, animate, frames=int(NITER/OUTPUT_FREQ))
+
+from IPython.display import HTML
+HTML(ani.to_jshtml())
+</pre>
+We now have to do more work in terms of choosing the step <i>h</i>
+(called <tt>dt</tt> in the program) and computing the implied
+number of iterations.<p></p>
+
+<p>
+The fixed value of 0.01 is presumably smaller than the Runge Kutta
+method uses, but I found that any larger step led to "loss" of particles
+when they hit perigee and were moving fastest.</p><p>
+
+</p><p>
+Nevertheless what you should see is that while the orbits may
+"precess" unphysically, they don't decay - some evidence perhaps
+that energy is being conserved.</p>
+
+<h2>Exercises</h2>
+
+<p>Experiment with these codes, adjusting initial conditions and integration
+time step for the Velocity Verlet case (you should be able to discover
+the time step for the SciPi RK4 algorithm restrospectively by inspecting
+the output array <tt>ts</tt>.
+You can control it by specifying a tolerance.)</p>
+
+<!--
+<p>
+If you are significantly more adventurous, try adding more particles.
+This of course will require substantial changes to the code that
+computes the gravitational acceleration - it becomes an N-body problem
+(although I don't particularly advocate going beyond N=3 or so by this
+method!)
+</p>
+-->
+
+
+
+<div id="footer">
+Copyright © University of Portsmouth, 2020
+</div>
+
+
+
+</div></div></body><grammarly-desktop-integration data-grammarly-shadow-root="true"><template shadowrootmode="open"><style>
+  div.grammarly-desktop-integration {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select:none;
+    user-select:none;
+  }
+
+  div.grammarly-desktop-integration:before {
+    content: attr(data-content);
+  }
+</style><div aria-label="grammarly-integration" role="group" tabindex="-1" class="grammarly-desktop-integration" data-content="{&quot;mode&quot;:&quot;full&quot;,&quot;isActive&quot;:true,&quot;isUserDisabled&quot;:false}"></div></template></grammarly-desktop-integration></html>

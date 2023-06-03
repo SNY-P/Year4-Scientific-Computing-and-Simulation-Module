@@ -1,0 +1,396 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<link href="./week2-lab_hamid_files/mystyle.css" rel="stylesheet" type="text/css">
+</head>
+
+<body style="" data-new-gr-c-s-check-loaded="14.1111.0" data-gr-ext-installed="">
+
+<div id="container">
+
+<div id="header">
+<h1>Scientific Computing and Simulation, Lab 2: The Fast Fourier Transform</h1>
+
+</div>
+
+<div id="content">
+
+<p>
+In the next couple of weeks I want to look
+at the uses of Fourier analysis in filtering and reconstructing images -
+I hope to cover examples from medical and astronomical imaging.
+</p>
+
+<p>
+This week as a preliminary we will be looking at the Fast Fourier Transform,
+and I will ask you to apply this to same image filtering task that took so
+long to process last week, when we using a naive implementation of
+the Discrete Fourier Transform.</p>
+
+<h2>Implementation of an FFT</h2>
+
+<p>
+Although it shouldn't be too hard to implement a recursive version
+of the Fast Fourier Transform, based for example on the formula on
+slide 15 of this week's lecture, it is a little more challenging to
+implement a fully optimized version of the FFT.  In particular,
+for efficiency, it is preferable to unpick the recursion and produce a
+purely iterative version of the same mathematics given in the slides.</p>
+
+<p>
+So instead I will provide you with the full Java code of a class FFT 
+<a href="/Lab Work/Week 2/FFT/">here</a>.  Download it and import it into
+Netbeans or your Java development environment of choice.</p>
+
+<p>
+The principal method of the class FFT is a static method called
+<tt>fft1d</tt>, and the code of that method is reproduced here:
+</p><pre>    public static void fft1d(double [] re, double [] im, int isgn) {
+
+        // One-dimensional FFT, or inverse FFT (in-place algorithm).
+
+        // When this method is called, the arrays re and im should contain
+        // the real and imaginary parts of the input data.
+
+        // When this method returns the values in these arrays are
+        // are overwritten with the real and imaginary parts of the
+        // transformed data.
+
+        // isgn = +1 or -1 for forward or inverse transform.
+
+        // Size of arrays should be a power or two.
+
+        final double pi = Math.PI ;
+
+        final int N = re.length ;  // im better be the same size
+
+        bitReverse(re, im) ;
+
+        int ln2   = ilog2(N)  ;  // Base 2 log of the leading dimension.
+
+        // Danielson-Lanczos algorithm for FFT.
+
+        for(int ilevel = 1 ; ilevel &lt;= ln2 ; ilevel++) {
+            int le   = ipow(2,ilevel) ;
+            int lev2 = le / 2 ;
+
+            double uRe = 1.0F ;
+            double uIm = 0.0F ;
+
+            double wRe = Math.cos(isgn * pi / lev2) ;
+            double wIm = Math.sin(isgn * pi / lev2) ;
+
+            for(int jj = 0 ; jj &lt; lev2 ; jj++) {
+                for(int ii = jj ; ii &lt; N ; ii += le) {
+                    int jndex = ii + lev2 ;
+                    int index = ii ;
+
+                    //tmp      = u * a(jndex) ;
+                    double tmpRe = uRe * re [jndex] - uIm * im [jndex] ;
+                    double tmpIm = uRe * im [jndex] + uIm * re [jndex] ;
+
+                    //a(jndex) = a(index) - tmp ;
+                    re [jndex] = re [index] - tmpRe ;
+                    im [jndex] = im [index] - tmpIm ;
+
+                    //a(index) = a(index) + tmp ;
+                    re [index] = re [index] + tmpRe ;
+                    im [index] = im [index] + tmpIm ;
+                }
+                //tmp = u * w ;
+                double tmpRe = uRe * wRe - uIm * wIm ;
+                double tmpIm = uRe * wIm + uIm * wRe ;
+
+                //u   = tmp ;
+                uRe   = tmpRe ;
+                uIm   = tmpIm ;
+            }
+        }
+    }
+</pre>
+Barring changes to names of variables, and the
+need in Java to unbundle complex numbers into real
+and imaginary parts, this is <i>almost</i> identical to
+pseudocode that at the time of writing is available on Wikipedia <a href="https://en.wikipedia.org/wiki/Cooley%E2%80%93Tukey_FFT_algorithm#Data_reordering,_bit_reversal,_and_in-place_algorithms">here</a>
+(under the heading "Data reordering, bit reversal, and in-place
+algorithms" of the article "Cooley–Tukey FFT algorithm").
+
+<p>
+One minor change is that in our version the nesting of the two innermost
+loops is inverted.  Amongst other things this makes our code slightly more
+economical in terms of computation of the twiddle factors.  A notable
+feature of these codes is that the number of imaginary exponentials
+(or trig functions) that have to be computed is quite minimal - one just
+calculates the <span style="color:blue">log<sub>2</sub> <i>N</i></span>
+imaginary exponentials with arguments minus or plus <i>2iπ/N</i>,
+<i>4iπ/N</i>, <i>8iπ/N</i>, and so on, up to <i>iπ/2</i>.  These
+are composed together using complex multiplication to get all other twiddle
+factors.</p>
+
+<p>
+(By the way I didn't write this Java code myself from scratch.
+I inheritted a FORTRAN FFT benchmark code quite a few years ago,
+and transcribed that to Java for some demo.  There's nothing wrong
+with code reuse!)</p>
+
+<p>
+Another feature of the code here is that it works "in place".
+The same pair or arrays is used for the inputs or the outputs, and
+the computed values of the Fourier transform replace the values
+of the real space data in these arrays as the computation unfolds (or
+vice versa for an inverse transform).</p>
+
+<p>
+In place algorithms are popular and valued in large scale computation,
+because they can be used to save memory.  In our setting they
+mean we do often have to define new arrays before calling the
+methods, and copy the input data to the new arrays before calling 
+the method.</p>
+
+<h2>Lab Work - Using the FFT</h2>
+
+<p>
+Last week we performed a two dimensional Discrete Fourier Transform
+on some image data, applied a trivial filter in Fourier space, then
+performed an inverse DFT to recover the filtered image.</p>
+
+<p>
+This week I want you to do the same, using FFTs.</p>
+
+<p>
+Above I have given you the code for a <i>one dimensional FFT</i>; I
+will leave it as an exercise to you to complete the two dimensional
+FFT based on this code.</p>
+
+<p>
+This should be simpler than it may sound, using the observation on
+slide 16 of the lecture that you can obtain an FFT of two dimensional
+data just by performing a one dimensional FFT on all rows of the
+data, followed by a one dimensional FFT on all columns of the data.</p>
+
+<p>
+Operationally, thinking of the two dimensional data as a (complex)
+matrix, it is easier to do the FFT on all all rows, transpose the
+matrix to swap rows and columns, do FFTs on all <i>rows</i> again,
+then transpose the matrix back.
+</p>
+
+<p>
+Like last week, let me give you the skeleton code for a Fourier
+Transform and its inverse:
+</p><pre>public class FFTImageFiltering {
+
+    public static int N = 256 ;
+
+    public static void main(String [] args) throws Exception {
+
+        double [] [] X = new double [N] [N] ;
+        ReadPGM.read(X, "wolf.pgm", N) ;
+
+        DisplayDensity display =
+                new DisplayDensity(X, N, "Original Image") ;
+
+        // create array for in-place FFT, and copy original data to it
+        double [] [] CRe = new double [N] [N], CIm = new double [N] [N] ;
+        for(int k = 0 ; k &lt; N ; k++) {
+            for(int l = 0 ; l &lt; N ; l++) {
+                CRe [k] [l] = X [k] [l] ;
+            }
+        }
+
+        fft2d(CRe, CIm, 1) ;  // Fourier transform
+
+        Display2dFT display2 =
+                new Display2dFT(CRe, CIm, N, "Discrete FT") ;
+
+        // create array for in-place inverse FFT, and copy FT to it
+        double [] [] reconRe = new double [N] [N],
+                     reconIm = new double [N] [N] ;
+        for(int k = 0 ; k &lt; N ; k++) {
+            for(int l = 0 ; l &lt; N ; l++) {
+                reconRe [k] [l] = CRe [k] [l] ;
+                reconIm [k] [l] = CIm [k] [l] ;
+            }
+        }
+
+        fft2d(reconRe, reconIm, -1) ;  // Inverse Fourier transform
+
+        DisplayDensity display3 =
+                new DisplayDensity(reconRe, N, "Reconstructed Image") ;
+    }
+
+    <span style="color:red">... implementation of fft2d ...</span>
+
+}
+</pre>
+You "just" need to implement the static method <tt>fft2d</tt>, which
+is an in place implementation of a two dimensional FFT.  The transform
+is controlled by the final integer parameter - plus 1 means the forward
+transform and -1 means the inverse transform.<p></p>
+
+<p>
+Don't panic! I have given you the non-trivial code for this, and according
+to the discussion above the most challenging part remaining is probably
+implementing an in place matrix transpose!</p>
+
+<p>
+I will even give you the general structure of that:
+</p><pre>    static void transpose(double [] [] a) {
+
+        for(int i = 0 ; i &lt; N ; i++) {
+            for(int j = 0 ; j &lt; i ; j++) {
+                 <span style="color:red">... swap values in a [i] [j] and a [j] [i] elements ...</span>
+            }
+        }
+    }
+</pre>
+Now you need to complete implemention of this method:
+<pre>    static void fft2d(double [] [] re, double [] [] im, int isgn) {
+
+        // For simplicity, assume square arrays
+
+        <span style="color:red">... fft1d on all rows of re, im ...</span>
+
+        transpose(re) ;
+        transpose(im) ;
+
+        <span style="color:red">... fft1d on all rows of re, im ...</span>
+
+        transpose(re) ;
+        transpose(im) ;
+    }
+</pre>
+Remember that in Java the <i>i</i>th row of a matrix, represented by
+a <tt>double [] []</tt> array <tt>a</tt>, is just the one dimensional
+array <tt>a [</tt><i>i</i><tt>]</tt>, which has type <tt>double []</tt>.
+Use this to separately extract rows of real and imaginary arrays and
+pass them as arguments to <tt>fft1d</tt>, in a loop over <i>i</i>.<p></p>
+
+<p>
+You should notice that the FFT version of the code is dramatically
+faster than the original naive implementation.</p>
+
+<p>
+For a fully optimized production quality library for performing
+Fourier transforms in "the wild", see, for example, <a href="http://www.fftw.org/">The Fastest Fourier Transform in the West</a>.
+
+</p><h2>Exercises</h2>
+
+<ol>
+<li>
+Benchmark your new implementation of the two dimensional Fourier
+Transform and compare it with the naive code you produced before.
+</li>
+<li>
+Complete the exercises suggested last week - experimenting with
+the effects of different kinds of low pass and high pass filters
+on the image.
+</li>
+<li>
+(Optional) Experiment with larger images (which you will have to
+source and load into the program). Please note that the image dimension (N) should be a square number. If it is not the case, the output of fft1d() won't be correct. 
+</li>
+<li>
+(Optional) How could you make a parallel version of the two dimensional
+FTT?
+</li>
+</ol>
+
+<!-- HAMID: I HAVE COMMNTED OUT THIS SECTION.
+<h2><i>Special Topic: Multiplication of Big Integers</i></h2>
+
+<p>
+Study and try running this code:
+<pre>
+  public class BigMult {
+  
+      static int N = 16 ;  // max number of digits
+  
+      static int B = 10 ;  // base of arithmetic
+  
+      // Note top N/2 digits of factors should be zeroes
+      static int [] X = {0, 0, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 5, 9, 2, 6} ;
+      static int [] W = {0, 0, 0, 0, 0, 0, 0, 0, 2, 7, 1, 8, 2, 8, 1, 8} ;
+  
+      public static void main(String [] args) {
+  
+           double [] XRe = new double [N], XIm = new double [N] ;
+           double [] WRe = new double [N], WIm = new double [N] ;
+  
+           for(int i = 0 ; i < N ; i++) {
+               XRe [i] = X [N - 1 - i] ;
+               WRe [i] = W [N - 1 - i] ;
+           }
+  
+           FFT.fft1d(XRe, XIm, 1) ;
+           FFT.fft1d(WRe, WIm, 1) ;
+  
+           double [] YRe = new double [N], YIm = new double [N] ;
+  
+           // Convolution in Fourier space
+           for(int k = 0 ; k < N ; k++) {
+               YRe [k] = XRe [k] * WRe [k] - XIm [k] * WIm [k] ;
+               YIm [k] = XRe [k] * WIm [k] + XIm [k] * WRe [k] ;
+           }
+  
+           FFT.fft1d(YRe, YIm, -1) ;
+  
+           for(int i = 0 ; i < N ; i++) {    // Normalization
+               YRe [i] /= N ;
+           }
+  
+           int [] Y = new int [N] ;
+  
+           // Carry scan
+  
+           for(int i = 0 ; i < N ; i++) {
+               int digit = (int) (YRe [i] + 0.5) ;
+               Y [N - 1 - i] = digit % B ;
+               if(i < N - 1) YRe [i + 1] += digit / B ;  // carry
+           }
+  
+           System.out.print("Y = {") ;
+           for(int i = 0 ; i < N ; i++) {
+               System.out.print(Y [i] + (i < N - 1 ? ", " : "")) ;
+           }
+           System.out.println("}") ;
+      }
+  }
+</pre>
+Compare the output with the result of multiplying 
+31,415,926 by 27,182,818 using a calculator.</p>
+
+<p>
+This is a phenomenally inefficient way of multiplying together two relatively small
+integers, but for numbers with many thousand digits it becomes highly competitive, because
+all stages other than the FFTs are <i>O(N)</i>, and the FFTs are only 
+<span style="color:blue"><i>O(N</i> log<sub>2</sub> <i>N)</i></span>.</p>
+-->
+
+</div>
+
+<div id="footer">
+Copyright © University of Portsmouth, 2020
+</div>
+
+
+
+</div></body><grammarly-desktop-integration data-grammarly-shadow-root="true"><template shadowrootmode="open"><style>
+  div.grammarly-desktop-integration {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select:none;
+    user-select:none;
+  }
+
+  div.grammarly-desktop-integration:before {
+    content: attr(data-content);
+  }
+</style><div aria-label="grammarly-integration" role="group" tabindex="-1" class="grammarly-desktop-integration" data-content="{&quot;mode&quot;:&quot;full&quot;,&quot;isActive&quot;:true,&quot;isUserDisabled&quot;:false}"></div></template></grammarly-desktop-integration></html>
